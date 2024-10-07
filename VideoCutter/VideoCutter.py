@@ -22,8 +22,8 @@ def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
 # 获取用户输入
 if __name__ == "__main__":
     video_path = input("Input path: ")
-    start_time = input("Start:（format：hh:mm:ss or s）: ")
-    end_time = input("End:（格式：hh:mm:ss or s）: ")
+    start_time = input("Start:(format：hh:mm:ss or s): ")
+    end_time = input("End:(format：hh:mm:ss or s): ")
     output_path = input("output path: ")
 
     # 调用函数截取视频

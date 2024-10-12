@@ -8,6 +8,17 @@ def remove_trailing_backslash(path: str) -> str:
         return path[:-1]
     return path
 
+def calculate_seconds_difference(start_time: str, end_time: str) -> str:
+    # 将时间字符串转换为时、分、秒
+    start_h, start_m, start_s = map(int, start_time.split(":"))
+    end_h, end_m, end_s = map(int, end_time.split(":"))
+
+    # 将起始和终止时间都转换为以秒为单位
+    start_total_seconds = start_h * 3600 + start_m * 60 + start_s
+    end_total_seconds = end_h * 3600 + end_m * 60 + end_s
+
+    # 返回时间差，单位为秒
+    return str(end_total_seconds - start_total_seconds)
 
 def is_valid_windows_filename(filename: str) -> bool:
     # 检查是否包含非法字符
@@ -31,27 +42,23 @@ def is_valid_windows_filename(filename: str) -> bool:
     # 如果所有检查都通过，返回True
     return True
 
-# 示例测试
-test_filename = "example.txt"
-result = is_valid_windows_filename(test_filename)
-result
-
-
 # 定义一个函数来调用 ffmpeg 截取视频片段
 def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
     try:
         ffmpeg_command = [
             'ffmpeg',
-            '-i', video_path,          # 输入视频文件
             '-ss', str(start_time),     # 起始时间
-            '-to', str(end_time),       # 终止时间
-            '-c', 'copy',               # 不重新编码，直接截取
+            '-i', video_path,          # 输入视频文件
+            '-t', calculate_seconds_difference(str(start_time), str(end_time)),  # 截取的持续时间
+            '-c:v', 'libx264',
+            '-preset', 'veryslow',
             output_path                 # 输出文件路径
         ]
 
         # 调用 ffmpeg 命令
         subprocess.run(ffmpeg_command, check=True)
         print(f"Saved as: {output_path}")
+        print("\tSuccess!\t")
 
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
@@ -101,10 +108,6 @@ def get_output_name():
         else:
             print(f"\tOutput name: {output_name} is not legal. Please try another one.\t")
 
-def export_video(video_path, start_time, end_time, output_path):
-    cut_video_ffmpeg(video_path, start_time, end_time, output_path)
-    print("\tSuccess!\t")
-
 if __name__ == "__main__":
     # 获取有效的输入视频文件路径
     video_path = get_valid_file_path()
@@ -117,7 +120,5 @@ if __name__ == "__main__":
     # 获取有效的输出路径
     output_path = get_valid_output_path()
 
-
-
     # 调用函数截取视频
-    export_video(video_path, start_time, end_time, f'{output_path}/{output_name}')
+    cut_video_ffmpeg(video_path, start_time, end_time, f'{output_path}/{output_name}')

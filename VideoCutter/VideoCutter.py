@@ -58,7 +58,7 @@ def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
         # 调用 ffmpeg 命令
         subprocess.run(ffmpeg_command, check=True)
         print(f"Saved as: {output_path}")
-        print("\tSuccess!\t")
+        print("\tSuccess!\t\t\t\t")
 
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
@@ -66,9 +66,21 @@ def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
 # 定义正则表达式来验证时间格式
 def is_valid_time_format(time_str):
     # 匹配 hh:mm:ss 格式，或纯秒数格式 s
-    hhmmss_pattern = r'^\d{1,2}:\d{2}:\d{2}$'  # hh:mm:ss 格式
-    seconds_pattern = r'^\d+(\.\d+)?$'          # 纯秒数 s 格式
-    return re.match(hhmmss_pattern, time_str) or re.match(seconds_pattern, time_str)
+    hhmmss_pattern = r'^(\d{1,2}):([0-5]?\d):([0-5]?\d)$'  # hh:mm:ss 格式
+    seconds_pattern = r'^\d+(\.\d+)?$'                     # 纯秒数 s 格式
+
+    # 尝试匹配 hh:mm:ss 格式
+    match = re.match(hhmmss_pattern, time_str)
+    if match:
+        hours, minutes, seconds = match.groups()
+        if int(minutes) <= 59 and int(seconds) <= 59:
+            return True
+
+    # 尝试匹配纯秒数格式
+    if re.match(seconds_pattern, time_str):
+        return True
+
+    return False
 
 # 获取有效的输入视频路径
 def get_valid_file_path():
@@ -109,16 +121,17 @@ def get_output_name():
             print(f"\tOutput name: {output_name} is not legal. Please try another one.\t")
 
 if __name__ == "__main__":
-    # 获取有效的输入视频文件路径
-    video_path = get_valid_file_path()
+    while(True):
+        # 获取有效的输入视频文件路径
+        video_path = get_valid_file_path()
 
-    # 获取截取视频的开始时间和结束时间，确保时间格式正确
-    start_time = get_valid_time_input("Start time (format: hh:mm:ss or s): ")
-    end_time = get_valid_time_input("End time (format: hh:mm:ss or s): ")
-    output_name = get_output_name()
+        # 获取截取视频的开始时间和结束时间，确保时间格式正确
+        start_time = get_valid_time_input("Start time (format: hh:mm:ss or s): ")
+        end_time = get_valid_time_input("End time (format: hh:mm:ss or s): ")
+        output_name = get_output_name()
 
-    # 获取有效的输出路径
-    output_path = get_valid_output_path()
+        # 获取有效的输出路径
+        output_path = get_valid_output_path()
 
-    # 调用函数截取视频
-    cut_video_ffmpeg(video_path, start_time, end_time, f'{output_path}/{output_name}')
+        # 调用函数截取视频
+        cut_video_ffmpeg(video_path, start_time, end_time, f'{output_path}/{output_name}')

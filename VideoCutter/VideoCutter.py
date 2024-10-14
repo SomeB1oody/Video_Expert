@@ -9,13 +9,18 @@ def remove_trailing_backslash(path: str) -> str:
     return path
 
 def calculate_seconds_difference(start_time: str, end_time: str) -> str:
-    # 将时间字符串转换为时、分、秒
-    start_h, start_m, start_s = map(int, start_time.split(":"))
-    end_h, end_m, end_s = map(int, end_time.split(":"))
+    def time_to_seconds(time_str: str) -> int:
+        # 如果是 hh:mm:ss 格式，按原逻辑转换为秒
+        if ":" in time_str:
+            h, m, s = map(int, time_str.split(":"))
+            return h * 3600 + m * 60 + s
+        else:
+            # 如果是纯秒数，直接转换为整数
+            return int(time_str)
 
-    # 将起始和终止时间都转换为以秒为单位
-    start_total_seconds = start_h * 3600 + start_m * 60 + start_s
-    end_total_seconds = end_h * 3600 + end_m * 60 + end_s
+    # 将开始时间和结束时间转换为秒数
+    start_total_seconds = time_to_seconds(start_time)
+    end_total_seconds = time_to_seconds(end_time)
 
     # 返回时间差，单位为秒
     return str(end_total_seconds - start_total_seconds)
@@ -121,7 +126,7 @@ def get_output_name():
             print(f"\tOutput name: {output_name} is not legal. Please try another one.\t")
 
 if __name__ == "__main__":
-    while(True):
+    while True:
         # 获取有效的输入视频文件路径
         video_path = get_valid_file_path()
 

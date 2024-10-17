@@ -2,6 +2,33 @@ import subprocess
 import os
 import re
 
+def remove_trailing_slash(path: str) -> str:
+    if path.endswith('/'):
+        return path[:-1]
+    return path
+
+def is_valid_windows_filename(filename: str) -> bool:
+    # 检查是否包含非法字符
+    invalid_chars = r'[<>:"/\\|?*]'
+    if re.search(invalid_chars, filename):
+        return False
+    # 检查是否是保留名称
+    reserved_names = [
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    ]
+    if filename.upper() in reserved_names:
+        return False
+    # 检查是否以空格或点结尾
+    if filename.endswith(' ') or filename.endswith('.'):
+        return False
+    # 检查文件名长度
+    if len(filename) > 255:
+        return False
+    # 如果所有检查都通过，返回True
+    return True
+
 def calculate_seconds_difference(start_time: str, end_time: str) -> str:
     def time_to_seconds(time_str: str) -> int:
         # 如果是 hh:mm:ss 格式，按原逻辑转换为秒
@@ -85,6 +112,14 @@ def get_valid_time_input(prompt):
         else:
             print("\tInvalid time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).\t")
 
+def get_valid_name_input():
+    while True:
+        output_name = input("Output name: ")
+        if is_valid_windows_filename(output_path):
+            return output_name
+        else:
+            print(f"\tOutput name: {output_path} is invalid. Please try again.\t")
+
 # 用户输入示例
 if __name__ == "__main__":
     while True:
@@ -104,6 +139,11 @@ if __name__ == "__main__":
 
         # 获取有效的输出路径
         output_path = get_valid_output_path()
+        output_name = get_valid_name_input()
+        
+        output_path = remove_trailing_slash(output_path)
+
+        output_path_ = f'{output_path}/{output_name}.gif'
 
         # 调用函数转换视频为GIF
         video_to_gif(video_path, start_time, end_time, output_path)

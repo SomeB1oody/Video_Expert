@@ -15,6 +15,7 @@ def is_valid_time_format(time_str):
     if re.match(integer_seconds_pattern, time_str): return True
     if re.match(float_seconds_pattern, time_str): return True
 
+    return False
 
 def is_valid_windows_filename(filename: str) -> bool:
     # 检查是否包含非法字符

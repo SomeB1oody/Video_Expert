@@ -9,21 +9,24 @@ def remove_trailing_backslash(path: str) -> str:
     return path
 
 def calculate_seconds_difference(start_time: str, end_time: str) -> str:
-    def time_to_seconds(time_str: str) -> int:
-        # 如果是 hh:mm:ss 格式，按原逻辑转换为秒
+    def time_to_seconds(time_str: str) -> float:
+        # 如果是 hh:mm:ss 或者 hh:mm:ss.sss 格式，按原逻辑转换为秒
         if ":" in time_str:
-            h, m, s = map(int, time_str.split(":"))
+            parts = time_str.split(":")
+            h = int(parts[0])
+            m = int(parts[1])
+            s = float(parts[2])  # 支持秒部分为小数
             return h * 3600 + m * 60 + s
         else:
-            # 如果是纯秒数，直接转换为整数
-            return int(time_str)
+            # 如果是纯秒数，直接转换为浮点数
+            return float(time_str)
 
     # 将开始时间和结束时间转换为秒数
     start_total_seconds = time_to_seconds(start_time)
     end_total_seconds = time_to_seconds(end_time)
 
-    # 返回时间差，单位为秒
-    return str(end_total_seconds - start_total_seconds)
+    # 返回时间差，保留小数点后两位
+    return "{:.2f}".format(end_total_seconds - start_total_seconds)
 
 def is_valid_windows_filename(filename: str) -> bool:
     # 检查是否包含非法字符
@@ -68,24 +71,18 @@ def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
 
-# 定义正则表达式来验证时间格式
 def is_valid_time_format(time_str):
-    # 匹配 hh:mm:ss 格式，或纯秒数格式 s
-    hhmmss_pattern = r'^(\d{1,2}):([0-5]?\d):([0-5]?\d)$'  # hh:mm:ss 格式
-    seconds_pattern = r'^\d+(\.\d+)?$'                     # 纯秒数 s 格式
+    # 正则表达式匹配 hh:mm:ss 格式（支持秒部分带小数）
+    hhmmss_pattern = r'^\d{1,2}:\d{2}:\d{2}(\.\d+)?$'
+    # 正则表达式匹配纯秒数（只支持整数）
+    integer_seconds_pattern = r'^\d+$'
+    # 正则表达式匹配纯秒数（支持带小数）
+    float_seconds_pattern = r'^\d+\.\d+$'
 
-    # 尝试匹配 hh:mm:ss 格式
-    match = re.match(hhmmss_pattern, time_str)
-    if match:
-        hours, minutes, seconds = match.groups()
-        if int(minutes) <= 59 and int(seconds) <= 59:
-            return True
-
-    # 尝试匹配纯秒数格式
-    if re.match(seconds_pattern, time_str):
-        return True
-
-    return False
+    # 验证是否符合任意一种格式
+    if re.match(hhmmss_pattern, time_str): return True
+    if re.match(integer_seconds_pattern, time_str): return True
+    if re.match(float_seconds_pattern, time_str): return True
 
 # 获取有效的输入视频路径
 def get_valid_file_path():

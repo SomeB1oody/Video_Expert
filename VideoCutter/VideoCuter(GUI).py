@@ -59,15 +59,15 @@ def calculate_seconds_difference(start_time: str, end_time: str) -> str:
     # 返回时间差，保留小数点后两位
     return "{:.2f}".format(end_total_seconds - start_total_seconds)
 
-def cut_video_ffmpeg(video_path, start_time, end_time, output_path):
+def cut_video_ffmpeg(video_path, start_time, end_time, encode_mode, encode_speed, output_path):
     try:
         ffmpeg_command = [
             'ffmpeg',
             '-ss', str(start_time),     # 起始时间
             '-i', video_path,          # 输入视频文件
             '-t', calculate_seconds_difference(str(start_time), str(end_time)),  # 截取的持续时间
-            '-c:v', 'libx264',
-            '-preset', 'veryslow',
+            '-c:v', encode_mode,
+            '-preset', encode_speed,
             output_path                 # 输出文件路径
         ]
 
@@ -111,6 +111,30 @@ class VideoCutterWX(wx.Frame):
         self.end_time = wx.TextCtrl(panel)
         self.hbox4.Add(self.end_time, flag=wx.EXPAND | wx.ALL, border=5)
         self.vbox.Add(self.hbox4, flag=wx.EXPAND)
+
+        # 编码格式单选框
+        self.encode_mode = wx.RadioBox(
+            panel, label="Choose encode mode:", choices=[
+                'H.264', 'H.265', 'MPEG-4', 'ascii', 'VP8', 'VP9', 'H.263', 'ProRes', 'DNxHD'
+            ],
+            majorDimension=4,  # 每列5个选项
+            style=wx.RA_SPECIFY_COLS  # 指定为按列排列
+        )
+        self.vbox.Add(self.encode_mode, flag=wx.ALL, border=5)
+
+        # 编码格式单选框
+        self.encode_speed = wx.RadioBox(
+            panel, label="Choose encode speed:",
+            choices=[
+                'Ultra Fast', 'Super Fast', 'Very Fast', 'Fast',
+                'Medium', 'Slow', 'Very Slow', 'Placebo'
+            ],
+            majorDimension=3,  # 每列5个选项
+            style=wx.RA_SPECIFY_COLS  # 指定为按列排列
+        )
+        self.vbox.Add(self.encode_speed, flag=wx.ALL, border=5)
+        self.vbox.Add(wx.StaticText(panel, label=
+        "Faster speed comes with the lower compression efficiency"), flag=wx.ALL, border=5)
 
         # 输出名称
         self.hbox5 = wx.BoxSizer(wx.HORIZONTAL)
@@ -159,22 +183,59 @@ class VideoCutterWX(wx.Frame):
         start_time = self.start_time.GetValue()
         end_time = self.end_time.GetValue()
         output_name = self.file_name.GetValue()
+        encode_mode = self.encode_mode.GetStringSelection()
+        encode_speed = self.encode_speed.GetStringSelection()
+
+        match encode_speed:
+            case 'Ultra Fast': encode_speed = 'ultrafast'
+            case 'Super Fast': encode_speed = 'superfast'
+            case 'Very Fast': encode_speed = 'veryfast'
+            case 'Fast': encode_speed = 'fast'
+            case 'Medium': encode_speed = 'medium'
+            case 'Slow': encode_speed = 'slow'
+            case 'Very Slow': encode_speed = 'veryslow'
+            case 'Placebo': encode_speed = 'placebo'
+            case _: encode_speed = 'medium'
+
+        match encode_mode:
+            case 'H.264': encode_mode = 'libx264'
+            case 'H.265': encode_mode = 'libx265'
+            case 'MPEG-4': encode_mode = 'mpeg4'
+            case 'vp8': encode_mode = 'vp8'
+            case 'vp9': encode_mode = 'vp9'
+            case 'ProRes': encode_mode = 'prores'
+            case 'DNxHD': encode_mode = 'dnxhd'
+            case _: encode_mode = 'libx264'
+
+        if not input_path:
+            wx.MessageBox('Input path is empty', 'Error', wx.OK | wx.ICON_ERROR)
+            return
+
+        if not output_path:
+            wx.MessageBox('Output path is empty', 'Error', wx.OK | wx.ICON_ERROR)
+            return
+
+        if not output_name:
+            wx.MessageBox('Output name is empty', 'Error', wx.OK | wx.ICON_ERROR)
+            return
 
         if not is_valid_time_format(start_time) or not is_valid_time_format(end_time):
             wx.MessageBox(
-        "Invalid time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).",
-        'Error', wx.OK | wx.ICON_ERROR)
+                "Invalid time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).",
+                'Error', wx.OK | wx.ICON_ERROR)
             return
 
         if not is_valid_windows_filename(output_name):
             wx.MessageBox(
-            f"Output name: {output_name} is invalid. Please try another one.", 'Error',
-            wx.OK | wx.ICON_ERROR)
+                f"Output name: {output_name} is invalid. Please try another one.", 'Error',
+                wx.OK | wx.ICON_ERROR)
             return
 
         output_path_ = f'{output_path}/{output_name}.mp4'
 
-        flag, error_message = cut_video_ffmpeg(input_path, start_time, end_time, output_path_)
+        flag, error_message = cut_video_ffmpeg(
+            input_path, start_time, end_time, encode_mode, encode_speed, output_path_
+        )
         if flag:
             wx.MessageBox(f"video saved as{output_path_}", 'Success', wx.OK | wx.ICON_INFORMATION)
             return
@@ -187,6 +248,6 @@ if __name__ == "__main__":
     app = wx.App()
     frame = VideoCutterWX(None)
     frame.SetTitle('Video Cutter WX')
-    frame.SetSize((600, 300))
+    frame.SetSize((375, 500))
     frame.Show()
     app.MainLoop()

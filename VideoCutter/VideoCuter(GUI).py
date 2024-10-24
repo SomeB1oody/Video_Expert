@@ -59,17 +59,25 @@ def calculate_seconds_difference(start_time: str, end_time: str) -> str:
     # 返回时间差，保留小数点后两位
     return "{:.2f}".format(end_total_seconds - start_total_seconds)
 
-def cut_video_ffmpeg(video_path, start_time, end_time, encode_mode, encode_speed, output_path):
+def cut_video_ffmpeg(video_path, encode_mode, encode_speed, output_path, start_time=None, end_time=None):
     try:
-        ffmpeg_command = [
-            'ffmpeg',
-            '-ss', str(start_time),     # 起始时间
-            '-i', video_path,          # 输入视频文件
-            '-t', calculate_seconds_difference(str(start_time), str(end_time)),  # 截取的持续时间
-            '-c:v', encode_mode,
-            '-preset', encode_speed,
-            output_path                 # 输出文件路径
-        ]
+        ffmpeg_command = ['ffmpeg']
+        # 如果有 start_time，则添加 -ss 参数
+        if start_time:
+            ffmpeg_command.extend(['-ss', str(start_time)])
+
+        # 添加输入文件路径
+        ffmpeg_command.extend(['-i', video_path])
+
+        # 如果有 end_time，则计算时间差并添加 -t 参数
+        if end_time:
+            ffmpeg_command.extend(
+                ['-t', calculate_seconds_difference(str(start_time) if start_time else "00:00:00", str(end_time))]
+            )
+
+        ffmpeg_command.extend(['-c:v', encode_mode]) # 编码模式
+        ffmpeg_command.extend(['-preset', encode_speed]) # 编码速度
+        ffmpeg_command.append(output_path) # 输出路径
 
         # 调用 ffmpeg 命令
         subprocess.run(ffmpeg_command, check=True)
@@ -219,11 +227,19 @@ class VideoCutterWX(wx.Frame):
             wx.MessageBox('Output name is empty', 'Error', wx.OK | wx.ICON_ERROR)
             return
 
-        if not is_valid_time_format(start_time) or not is_valid_time_format(end_time):
-            wx.MessageBox(
-                "Invalid time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).",
+        if start_time:
+            if not is_valid_time_format(start_time):
+                wx.MessageBox(
+                "Invalid start time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).",
                 'Error', wx.OK | wx.ICON_ERROR)
-            return
+                return
+
+        if end_time:
+            if not is_valid_time_format(end_time):
+                wx.MessageBox(
+                "Invalid end time format. Please enter time in hh:mm:ss or seconds (e.g., 120 or 01:30:00).",
+                'Error', wx.OK | wx.ICON_ERROR)
+                return
 
         if not is_valid_windows_filename(output_name):
             wx.MessageBox(
@@ -234,7 +250,7 @@ class VideoCutterWX(wx.Frame):
         output_path_ = f'{output_path}/{output_name}.mp4'
 
         flag, error_message = cut_video_ffmpeg(
-            input_path, start_time, end_time, encode_mode, encode_speed, output_path_
+            input_path, encode_mode, encode_speed, output_path_, start_time, end_time
         )
         if flag:
             wx.MessageBox(f"video saved as{output_path_}", 'Success', wx.OK | wx.ICON_INFORMATION)

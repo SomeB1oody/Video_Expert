@@ -5,6 +5,8 @@ def detect_hardware_encoding():
     # 检测可用的硬件加速单元
     system_platform = platform.system()
     supported_encoders = []
+    av1_support = []
+    prores_support = []
 
     # 根据平台检查可用的编码器
     if system_platform in ['Windows', 'Linux']:
@@ -14,24 +16,40 @@ def detect_hardware_encoding():
         # 检查NVIDIA NVENC支持
         if "h264_nvenc" in ffmpeg_output.stdout or "hevc_nvenc" in ffmpeg_output.stdout:
             supported_encoders.append('nvenc')
+            if "av1_nvenc" in ffmpeg_output.stdout:
+                av1_support.append('nvenc')
+            if "prores_nvenc" in ffmpeg_output.stdout:
+                prores_support.append('nvenc')
         # 检查Intel QSV支持
         if "h264_qsv" in ffmpeg_output.stdout or "hevc_qsv" in ffmpeg_output.stdout:
             supported_encoders.append('qsv')
+            if "av1_qsv" in ffmpeg_output.stdout:
+                av1_support.append('qsv')
+            if "prores_qsv" in ffmpeg_output.stdout:
+                prores_support.append('qsv')
         # 检查AMD AMF支持
         if "h264_amf" in ffmpeg_output.stdout or "hevc_amf" in ffmpeg_output.stdout:
             supported_encoders.append('amf')
+            if "av1_amf" in ffmpeg_output.stdout:
+                av1_support.append('amf')
+            if "prores_amf" in ffmpeg_output.stdout:
+                prores_support.append('amf')
 
     elif system_platform == 'Darwin':  # macOS 平台
         # 检查VideoToolbox支持
         ffmpeg_output = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
         if "h264_videotoolbox" in ffmpeg_output.stdout or "hevc_videotoolbox" in ffmpeg_output.stdout:
             supported_encoders.append('videotoolbox')
+            if 'av1_videotoolbox' in ffmpeg_output.stdout:
+                av1_support.append('videotoolbox')
+            if 'prores_videotoolbox' in ffmpeg_output.stdout:
+                prores_support.append('videotoolbox')
 
-    return supported_encoders
+    return supported_encoders, av1_support, prores_support
 
 def check_hardware_encoding():
     # 检测硬件加速单元
-    available_encoders = detect_hardware_encoding()
+    available_encoders, _, _ = detect_hardware_encoding()
 
     # 如果没有检测到硬件加速单元，则返回'cpu'并使用CPU编码
     if not available_encoders:
@@ -53,7 +71,7 @@ def check_hardware_encoding():
 
 def encode_video(input_file, output_file, codec, file_extension, start_time=0):
     # 检查是否有可用的硬件加速类型
-    hardware_type = check_hardware_encoding()
+    hardware_type, av1_support, prores_support = check_hardware_encoding()
 
     # 自动添加文件扩展名到输出文件
     output_file_with_extension = f"{output_file}.{file_extension}"
@@ -93,7 +111,18 @@ def encode_video(input_file, output_file, codec, file_extension, start_time=0):
     else:
         # 如果没有可用的硬件加速类型，则使用CPU编码
         if codec in ['h264', 'h265', 'vp8', 'vp9', 'av1', 'prores']:
-            ffmpeg_command.extend(['-c:v', codec])
+            if codec == 'av1':
+                if av1_support:
+                    ffmpeg_command.extend(['-c:v', f'av1_{av1_support[0]}'])
+                else:
+                    ffmpeg_command.extend(['-c:v', 'av1'])
+            elif codec == 'prores':
+                if prores_support:
+                    ffmpeg_command.extend(['-c:v', f'prores_{prores_support[0]}'])
+                else:
+                    ffmpeg_command.extend(['-c:v', 'prores'])
+            else:
+                ffmpeg_command.extend(['-c:v', codec])
         else:
             print(f"Unsupported codec: {codec}. Using default H.264 CPU encoding.")
             ffmpeg_command.extend(['-c:v', 'h264'])

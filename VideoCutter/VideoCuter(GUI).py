@@ -1,6 +1,111 @@
-import subprocess
 import re
 import wx
+import platform
+import subprocess
+
+def auto_encode(selected_codec):
+    # 检测可用的硬件加速单元
+    system_platform = platform.system()
+    h264_support = []
+    hevc_support = []
+    vp8_support = []
+    vp9_support = []
+    av1_support = []
+    prores_support = []
+
+    # 运行FFmpeg命令以列出可用的编码器
+    ffmpeg_output = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
+    # 根据平台检查可用的编码器
+    if system_platform in ['Windows', 'Linux']:
+
+        # 检查NVIDIA NVENC支持
+        if "h264_nvenc" in ffmpeg_output.stdout:
+            h264_support.append('nvenc')
+        if "hevc_nvenc" in ffmpeg_output.stdout:
+            hevc_support.append('nvenc')
+        if "av1_nvenc" in ffmpeg_output.stdout:
+            av1_support.append('nvenc')
+        if "prores_nvenc" in ffmpeg_output.stdout:
+            prores_support.append('nvenc')
+        if "vp8_nvenc" in ffmpeg_output.stdout:
+            vp8_support.append('nvenc')
+        if "vp9_nvenc" in ffmpeg_output.stdout:
+            vp9_support.append('nvenc')
+
+        # 检查Intel QSV支持
+        if "h264_qsv" in ffmpeg_output.stdout:
+            h264_support.append('qsv')
+        if "hevc_qsv" in ffmpeg_output.stdout:
+            hevc_support.append('qsv')
+        if "av1_qsv" in ffmpeg_output.stdout:
+            av1_support.append('qsv')
+        if "prores_qsv" in ffmpeg_output.stdout:
+            prores_support.append('qsv')
+        if "vp8_qsv" in ffmpeg_output.stdout:
+            vp8_support.append('qsv')
+        if "vp9_qsv" in ffmpeg_output.stdout:
+            vp9_support.append('qsv')
+
+        # 检查AMD AMF支持
+        if "h264_amf" in ffmpeg_output.stdout:
+            h264_support.append('amf')
+        if "hevc_amf" in ffmpeg_output.stdout:
+            hevc_support.append('amf')
+        if "av1_amf" in ffmpeg_output.stdout:
+            av1_support.append('amf')
+        if "prores_amf" in ffmpeg_output.stdout:
+            prores_support.append('amf')
+        if "vp8_amf" in ffmpeg_output.stdout:
+            vp8_support.append('amf')
+        if "vp9_amf" in ffmpeg_output.stdout:
+            vp9_support.append('amf')
+
+    elif system_platform == 'Darwin':  # macOS 平台
+        if "h264_videotoolbox" in ffmpeg_output.stdout:
+            h264_support.append('videotoolbox')
+        if "hevc_videotoolbox" in ffmpeg_output.stdout:
+            hevc_support.append('videotoolbox')
+        if 'prores_videotoolbox' in ffmpeg_output.stdout:
+            prores_support.append('videotoolbox')
+        if 'av1_videotoolbox' in ffmpeg_output.stdout:
+            av1_support.append('videotoolbox')
+        if 'vp8_videotoolbox' in ffmpeg_output.stdout:
+            vp8_support.append('videotoolbox')
+        if 'vp9_videotoolbox' in ffmpeg_output.stdout:
+            vp9_support.append('videotoolbox')
+
+    if selected_codec == 'h264':
+        if h264_support:
+            return h264_support[0]
+        else:
+            return 'cpu'
+    elif selected_codec == 'hevc':
+        if hevc_support:
+            return hevc_support[0]
+        else:
+            return 'cpu'
+    elif selected_codec == 'av1':
+        if av1_support:
+            return av1_support[0]
+        else:
+            return 'cpu'
+    elif selected_codec == 'prores':
+        if prores_support:
+            return prores_support[0]
+        else:
+            return 'cpu'
+    elif selected_codec == 'vp8':
+        if vp8_support:
+            return vp8_support[0]
+        else:
+            return 'cpu'
+    elif selected_codec == 'vp9':
+        if vp9_support:
+            return vp9_support[0]
+        else:
+            return 'cpu'
+    else:
+        return 'cpu'
 
 def is_valid_time_format(time_str):
     # 正则表达式匹配 hh:mm:ss 格式（支持秒部分带小数）
@@ -75,7 +180,12 @@ def cut_video_ffmpeg(video_path, encode_mode, encode_speed, output_path, start_t
                 ['-t', calculate_seconds_difference(str(start_time) if start_time else "00:00:00", str(end_time))]
             )
 
-        ffmpeg_command.extend(['-c:v', encode_mode]) # 编码模式
+        encode_process = auto_encode(encode_mode)
+        if encode_process != 'cpu':
+            ffmpeg_command.extend(['-c:v', f'{encode_mode}_{encode_process}']) # 编码模式
+        else:
+            ffmpeg_command.extend(['-c:v', encode_mode])
+
         ffmpeg_command.extend(['-preset', encode_speed]) # 编码速度
         ffmpeg_command.append(output_path) # 输出路径
 
@@ -114,7 +224,7 @@ class VideoCutterWX(wx.Frame):
         self.vbox.Add(self.hbox3, flag=wx.EXPAND)
 
         self.hbox4 = wx.BoxSizer(wx.HORIZONTAL)
-        self.end_time_text = wx.StaticText(panel, label="Start time:")
+        self.end_time_text = wx.StaticText(panel, label="End time:")
         self.hbox4.Add(self.end_time_text, flag=wx.ALL, border=5)
         self.end_time = wx.TextCtrl(panel)
         self.hbox4.Add(self.end_time, flag=wx.EXPAND | wx.ALL, border=5)
@@ -123,7 +233,7 @@ class VideoCutterWX(wx.Frame):
         # 编码格式单选框
         self.encode_mode = wx.RadioBox(
             panel, label="Choose encode mode:", choices=[
-                'H.264', 'H.265', 'MPEG-4', 'ascii', 'VP8', 'VP9', 'H.263', 'ProRes', 'DNxHD'
+                'H.264', 'H.265', 'VP8', 'VP9', 'ProRes', 'AV1'
             ],
             majorDimension=4,  # 每列5个选项
             style=wx.RA_SPECIFY_COLS  # 指定为按列排列
@@ -206,14 +316,13 @@ class VideoCutterWX(wx.Frame):
             case _: encode_speed = 'medium'
 
         match encode_mode:
-            case 'H.264': encode_mode = 'libx264'
-            case 'H.265': encode_mode = 'libx265'
-            case 'MPEG-4': encode_mode = 'mpeg4'
+            case 'H.264': encode_mode = 'h264'
+            case 'H.265': encode_mode = 'hevc'
             case 'vp8': encode_mode = 'vp8'
             case 'vp9': encode_mode = 'vp9'
             case 'ProRes': encode_mode = 'prores'
-            case 'DNxHD': encode_mode = 'dnxhd'
-            case _: encode_mode = 'libx264'
+            case 'AV1': encode_mode = 'av1'
+            case _: encode_mode = 'h263'
 
         if not input_path:
             wx.MessageBox('Input path is empty', 'Error', wx.OK | wx.ICON_ERROR)
@@ -264,6 +373,6 @@ if __name__ == "__main__":
     app = wx.App()
     frame = VideoCutterWX(None)
     frame.SetTitle('Video Cutter WX')
-    frame.SetSize((375, 500))
+    frame.SetSize((375, 550))
     frame.Show()
     app.MainLoop()

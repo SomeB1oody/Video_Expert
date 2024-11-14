@@ -25,51 +25,97 @@ def is_valid_windows_filename(filename: str) -> bool:
     # 如果所有检查都通过，返回True
     return True
 
-def detect_hardware_encoding():
+def auto_encode(selected_codec):
     # 检测可用的硬件加速单元
     system_platform = platform.system()
-    supported_encoders = []
+    h264_support = []
+    hevc_support = []
+    vp8_support = []
+    vp9_support = []
     av1_support = []
     prores_support = []
 
+    # 运行FFmpeg命令以列出可用的编码器
+    ffmpeg_output = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
     # 根据平台检查可用的编码器
     if system_platform in ['Windows', 'Linux']:
-        # 运行FFmpeg命令以列出可用的编码器
-        ffmpeg_output = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
 
         # 检查NVIDIA NVENC支持
-        if "h264_nvenc" in ffmpeg_output.stdout or "hevc_nvenc" in ffmpeg_output.stdout:
-            supported_encoders.append('nvenc')
-            if "av1_nvenc" in ffmpeg_output.stdout:
-                av1_support.append('nvenc')
-            if "prores_nvenc" in ffmpeg_output.stdout:
-                prores_support.append('nvenc')
+        if "h264_nvenc" in ffmpeg_output.stdout:
+            h264_support.append('nvenc')
+        if "hevc_nvenc" in ffmpeg_output.stdout:
+            hevc_support.append('nvenc')
+        if "av1_nvenc" in ffmpeg_output.stdout:
+            av1_support.append('nvenc')
+        if "prores_nvenc" in ffmpeg_output.stdout:
+            prores_support.append('nvenc')
+        if "vp8_nvenc" in ffmpeg_output.stdout:
+            vp8_support.append('nvenc')
+        if "vp9_nvenc" in ffmpeg_output.stdout:
+            vp9_support.append('nvenc')
+
         # 检查Intel QSV支持
-        if "h264_qsv" in ffmpeg_output.stdout or "hevc_qsv" in ffmpeg_output.stdout:
-            supported_encoders.append('qsv')
-            if "av1_qsv" in ffmpeg_output.stdout:
-                av1_support.append('qsv')
-            if "prores_qsv" in ffmpeg_output.stdout:
-                prores_support.append('qsv')
+        if "h264_qsv" in ffmpeg_output.stdout:
+            h264_support.append('qsv')
+        if "hevc_qsv" in ffmpeg_output.stdout:
+            hevc_support.append('qsv')
+        if "av1_qsv" in ffmpeg_output.stdout:
+            av1_support.append('qsv')
+        if "prores_qsv" in ffmpeg_output.stdout:
+            prores_support.append('qsv')
+        if "vp8_qsv" in ffmpeg_output.stdout:
+            vp8_support.append('qsv')
+        if "vp9_qsv" in ffmpeg_output.stdout:
+            vp9_support.append('qsv')
+
         # 检查AMD AMF支持
-        if "h264_amf" in ffmpeg_output.stdout or "hevc_amf" in ffmpeg_output.stdout:
-            supported_encoders.append('amf')
-            if "av1_amf" in ffmpeg_output.stdout:
-                av1_support.append('amf')
-            if "prores_amf" in ffmpeg_output.stdout:
-                prores_support.append('amf')
+        if "h264_amf" in ffmpeg_output.stdout:
+            h264_support.append('amf')
+        if "hevc_amf" in ffmpeg_output.stdout:
+            hevc_support.append('amf')
+        if "av1_amf" in ffmpeg_output.stdout:
+            av1_support.append('amf')
+        if "prores_amf" in ffmpeg_output.stdout:
+            prores_support.append('amf')
+        if "vp8_amf" in ffmpeg_output.stdout:
+            vp8_support.append('amf')
+        if "vp9_amf" in ffmpeg_output.stdout:
+            vp9_support.append('amf')
 
     elif system_platform == 'Darwin':  # macOS 平台
-        # 检查VideoToolbox支持
-        ffmpeg_output = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
-        if "h264_videotoolbox" in ffmpeg_output.stdout or "hevc_videotoolbox" in ffmpeg_output.stdout:
-            supported_encoders.append('videotoolbox')
-            if 'prores_videotoolbox' in ffmpeg_output.stdout:
-                prores_support.append('videotoolbox')
-            if 'av1_videotoolbox' in ffmpeg_output.stdout:
-                av1_support.append('videotoolbox')
+        if "h264_videotoolbox" in ffmpeg_output.stdout:
+            h264_support.append('videotoolbox')
+        if "hevc_videotoolbox" in ffmpeg_output.stdout:
+            hevc_support.append('videotoolbox')
+        if 'prores_videotoolbox' in ffmpeg_output.stdout:
+            prores_support.append('videotoolbox')
+        if 'av1_videotoolbox' in ffmpeg_output.stdout:
+            av1_support.append('videotoolbox')
+        if 'vp8_videotoolbox' in ffmpeg_output.stdout:
+            vp8_support.append('videotoolbox')
+        if 'vp9_videotoolbox' in ffmpeg_output.stdout:
+            vp9_support.append('videotoolbox')
 
-    return supported_encoders, av1_support, prores_support
+    if selected_codec == 'h264':
+        h264_support += ['cpu']
+        return h264_support
+    elif selected_codec == 'hevc':
+        hevc_support += ['cpu']
+        return hevc_support
+    elif selected_codec == 'av1':
+        av1_support += ['cpu']
+        return av1_support
+    elif selected_codec == 'prores':
+        prores_support += ['cpu']
+        return prores_support
+    elif selected_codec == 'vp8':
+        vp8_support += ['cpu']
+        return vp8_support
+    elif selected_codec == 'vp9':
+        vp9_support += ['cpu']
+        return vp9_support
+    else:
+        return ['cpu']
 
 class CodecTransformerWX(wx.Frame):
     def __init__(self, *args, **kw):
@@ -79,13 +125,13 @@ class CodecTransformerWX(wx.Frame):
         self.vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 输入路径
-        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.hbox_ = wx.BoxSizer(wx.HORIZONTAL)
         self.file_button = wx.Button(panel, label="Select video")
         self.Bind(wx.EVT_BUTTON, self.on_select_video, self.file_button)
-        self.hbox.Add(self.file_button,flag=wx.ALL, border=5)
+        self.hbox_.Add(self.file_button,flag=wx.ALL, border=5)
         self.input_path_text = wx.StaticText(panel, label="Click \"Select video\" first")
-        self.hbox.Add(self.input_path_text, flag=wx.ALL, border=5)
-        self.vbox.Add(self.hbox, flag=wx.EXPAND)
+        self.hbox_.Add(self.input_path_text, flag=wx.ALL, border=5)
+        self.vbox.Add(self.hbox_, flag=wx.EXPAND)
 
         # 输出名称
         self.hbox5 = wx.BoxSizer(wx.HORIZONTAL)
@@ -112,7 +158,7 @@ class CodecTransformerWX(wx.Frame):
         encode_mode_label = wx.StaticText(panel, label="Encode mode")
         self.encode_mode = wx.ListBox(
             panel, choices=[
-                'h264', 'h265', 'vp8', 'vp9', 'av1', 'prores'
+                'h264', 'hevc', 'vp8', 'vp9', 'av1', 'prores'
             ], style=wx.LB_SINGLE
         )
         self.encode_mode.Bind(wx.EVT_LISTBOX, self.on_encode_mode)
@@ -165,13 +211,10 @@ class CodecTransformerWX(wx.Frame):
                 self.selected_folder = dialog.GetPath()
 
     def on_encode_mode(self, event):
-        supported_encoders, av1_support, prores_support = detect_hardware_encoding()
-        encoders = supported_encoders + ['cpu']
-
         if self.encode_mode.GetStringSelection() =='h264':
             self.output_format.Set(['.mp4', '.mov', '.mkv'])
 
-        elif self.encode_mode.GetStringSelection() =='h265':
+        elif self.encode_mode.GetStringSelection() =='hevc':
             self.output_format.Set(['.mp4', '.mov', '.mkv'])
 
         elif self.encode_mode.GetStringSelection() =='vp8':
@@ -181,16 +224,13 @@ class CodecTransformerWX(wx.Frame):
             self.output_format.Set(['.mkv', '.webm'])
 
         elif self.encode_mode.GetStringSelection() == 'av1':
-            av1_support.append('cpu')
-            encoders = av1_support
             self.output_format.Set(['.mkv', '.webm'])
 
         elif self.encode_mode.GetStringSelection() == 'prores':
-            prores_support.append('cpu')
-            encoders = prores_support
             self.output_format.Set(['.mov'])
 
-        self.encoder_choice.Set(encoders)
+        support_encoders_list = auto_encode(self.encode_mode.GetStringSelection())
+        self.encoder_choice.Set(support_encoders_list)
 
     def on_transform(self, event):
         encode_mode = self.encode_mode.GetStringSelection()

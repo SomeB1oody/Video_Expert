@@ -1,69 +1,143 @@
-import subprocess
 import os
+import subprocess
+import wx
 
 def change_video_speed(video_path, output_path, speed, keep_pitch):
-    # 检查文件是否存在
-    if not os.path.isfile(video_path):
-        raise FileNotFoundError("输入文件不存在，请检查路径！")
-
-    # 检查输出路径是否有效
-    output_dir = os.path.dirname(output_path)
-    if output_dir and not os.path.exists(output_dir):
-        raise FileNotFoundError("输出路径不存在，请检查路径！")
-
     try:
-        if keep_pitch == 'y':
-            # 保持音调：视频变速 (setpts) + 音频保持音调 (atempo 可能需要多次分段)
-            command = [
-                'ffmpeg',
-                '-i', video_path,
-                '-vf', f"setpts={1/speed}*PTS",
-                '-filter:a', f"atempo={speed}",
-                '-y',  # 自动覆盖输出文件
-                output_path
+        # 速度超过atempo的处理
+        atempo_filters = []
+        while speed > 2.0:
+            atempo_filters.append("atempo=2.0")
+            speed /= 2.0
+        atempo_filters.append(f"atempo={speed}")
+        atempo_filter = ",".join(atempo_filters)
+
+        if keep_pitch.lower() == 'y':
+            # 保持音调
+            cmd = [
+                "ffmpeg", "-i", video_path, "-filter_complex",
+                f"[0:v]setpts={1/speed}*PTS[v];[0:a]{atempo_filter}[a]",
+                "-map", "[v]", "-map", "[a]", output_path
             ]
         else:
-            # 不保持音调：视频变速 (setpts) + 音频直接变速
-            command = [
-                'ffmpeg',
-                '-i', video_path,
-                '-vf', f"setpts={1/speed}*PTS",
-                '-af', f"atempo={speed}",
-                '-y',  # 自动覆盖输出文件
-                output_path
+            # 不保持音调
+            cmd = [
+                "ffmpeg", "-i", video_path, "-filter_complex",
+                f"[0:v]setpts={1/speed}*PTS[v];[0:a]{atempo_filter}[a]",
+                "-map", "[v]", "-map", "[a]", output_path
             ]
 
-        # 执行 FFmpeg 命令
-        subprocess.run(command, check=True)
-        print(f"视频处理完成！已保存到: {output_path}")
+        # 调用ffmpeg命令
+        subprocess.run(cmd, check=True)
+    except ValueError as ve:
+        raise ValueError(ve)
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"处理视频时出错: {e}")
-    except Exception as e:
-        raise RuntimeError(f"发生错误: {e}")
+        raise ValueError(e)
+
+class SpeedControllerWX(wx.Frame):
+    def __init__(self, *args, **kw):
+        super(SpeedControllerWX, self).__init__(*args, **kw)
+
+        panel = wx.Panel(self)
+        self.vbox = wx.BoxSizer(wx.VERTICAL)
+
+        # 输入路径
+        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.file_button = wx.Button(panel, label="Select video")
+        self.Bind(wx.EVT_BUTTON, self.on_select_video, self.file_button)
+        self.hbox.Add(self.file_button,flag=wx.ALL, border=5)
+        self.input_path_text = wx.StaticText(panel, label="Click \"Select video\" first")
+        self.hbox.Add(self.input_path_text, flag=wx.ALL, border=5)
+        self.vbox.Add(self.hbox, flag=wx.EXPAND)
+
+        # 输出路径
+        self.hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        self.folder_button = wx.Button(panel, label="Select output folder")
+        self.Bind(wx.EVT_BUTTON, self.on_select_folder, self.folder_button)
+        self.hbox2.Add(self.folder_button, flag=wx.ALL, border=5)
+        self.output_path_text = wx.StaticText(panel, label="Click \"Select output folder\" first")
+        self.hbox2.Add(self.output_path_text, flag=wx.ALL, border=5)
+        self.vbox.Add(self.hbox2, flag=wx.EXPAND)
+
+        # 输出名称
+        self.hbox5 = wx.BoxSizer(wx.HORIZONTAL)
+        self.name_text = wx.StaticText(panel, label="Output name:")
+        self.hbox5.Add(self.name_text, flag=wx.ALL, border=5)
+        self.file_name = wx.TextCtrl(panel)
+        self.hbox5.Add(self.file_name, flag=wx.ALL, border=5)
+        self.vbox.Add(self.hbox5, flag=wx.EXPAND)
+
+        # 速度
+        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.speed_text = wx.StaticText(panel, label="Speed:")
+        self.hbox.Add(self.speed_text, flag=wx.ALL, border=5)
+        self.speed = wx.TextCtrl(panel)
+        self.hbox.Add(self.speed, flag=wx.ALL, border=5)
+        self.vbox.Add(self.hbox, flag=wx.EXPAND)
+
+        # 是否缩放
+        self.pitch = wx.RadioBox(
+            panel, label="Keep pitch", choices=[
+                'Yes', 'No'
+            ]
+        )
+        self.vbox.Add(self.pitch, flag=wx.ALL, border=5)
+
+        # 转换按钮
+        self.transform_button = wx.Button(panel, label="Process")
+        self.transform_button.Bind(wx.EVT_BUTTON, self.on_transform)
+        self.vbox.Add(self.transform_button, flag=wx.ALL, border=5)
+
+        # 设置面板的布局管理器
+        panel.SetSizer(self.vbox)
+        panel.Layout()
+
+    def on_select_video(self, event):
+        with wx.FileDialog(None, "Select a video", wildcard="所有文件 (*.*)|*.*",
+                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dialog:
+            if dialog.ShowModal() == wx.ID_OK:
+                self.input_path_text.SetLabel(f"{dialog.GetPath()}")
+                self.selected_file = dialog.GetPath()
+
+    def on_select_folder(self, event):
+        with wx.DirDialog(None, "Select a folder for output", "",
+                          style=wx.DD_DEFAULT_STYLE) as dialog:
+            if dialog.ShowModal() == wx.ID_OK:
+                self.output_path_text.SetLabel(f"{dialog.GetPath()}")
+                self.selected_folder = dialog.GetPath()
+
+    def on_transform(self, event):
+        input_path = self.selected_file
+        output_path = self.selected_folder
+        output_name = self.file_name.GetValue()
+        speed = self.speed.GetValue()
+        pitch = self.pitch.GetStringSelection().lower()
+        pitch = pitch[0]
+
+        _, ext = os.path.splitext(os.path.basename(input_path))
+
+        path = f'{output_path}/{output_name}{ext}'
+
+        try:
+            speed = float(speed)
+            if speed <= 0:
+                wx.MessageBox('Speed must be greater than zero!', 'Error', wx.OK | wx.ICON_ERROR)
+                return
+        except ValueError as e:
+            wx.MessageBox(str(e), 'Error', wx.OK | wx.ICON_ERROR)
+            return
+
+        try:
+            change_video_speed(input_path, path, speed, pitch)
+            wx.MessageBox(f'File saved as {path}', 'Success', wx.OK | wx.ICON_INFORMATION)
+        except Exception as e:
+            wx.MessageBox(str(e), 'Error', wx.OK | wx.ICON_ERROR)
+            return
 
 if __name__ == "__main__":
-    # 询问用户输入
-    video_path = input("请输入视频文件路径: ").strip()
-
-    try:
-        speed = float(input("请输入变速倍率 (大于0): "))
-        if speed <= 0:
-            raise ValueError("变速倍率必须大于0!")
-    except ValueError as e:
-        print(e)
-        exit(1)
-
-    keep_pitch = input("是否保持音调？(y/n): ").strip().lower()
-    if keep_pitch not in ['y', 'n']:
-        print("请输入 'y' 或 'n'!")
-        exit(1)
-
-    output_path = input("请输入输出文件的完整路径（包括文件名和扩展名）: ").strip()
-    if not output_path:
-        print("输出路径不能为空！")
-        exit(1)
-
-    try:
-        change_video_speed(video_path, output_path, speed, keep_pitch)
-    except Exception as e:
-        print(e)
+    app = wx.App()
+    frame = SpeedControllerWX(None)
+    frame.SetTitle('Speed Controller with GUI')
+    frame.SetSize((400, 250))
+    frame.Show()
+    app.MainLoop()

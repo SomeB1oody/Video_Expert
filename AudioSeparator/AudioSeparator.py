@@ -4,7 +4,7 @@ import subprocess
 def separate_audio_video(video_input_path):
     # 检查输入文件是否存在
     if not os.path.isfile(video_input_path):
-        print("错误: 输入的视频文件不存在！")
+        print("Error: The video file you entered does not exist!")
         return
 
     # 获取文件名和扩展名
@@ -18,26 +18,26 @@ def separate_audio_video(video_input_path):
 
     try:
         # 分离无音频的视频
-        print("正在提取无音频视频...")
+        print("Extracting video without audio...")
         subprocess.run(
             ["ffmpeg", "-i", video_input_path, "-an", "-c:v", "copy", video_no_audio_output],
             check=True
         )
-        print(f"无音频视频已保存到: {video_no_audio_output}")
+        print(f"No audio video saved to: {video_no_audio_output}")
 
         # 提取音频
-        print("正在提取纯音频...")
+        print("Extracting pure audio...")
         subprocess.run(
             ["ffmpeg", "-i", video_input_path, "-vn", "-acodec", "libmp3lame", audio_output],
             check=True
         )
-        print(f"纯音频文件已保存到: {audio_output}")
+        print(f"Pure audio files have been saved to: {audio_output}")
 
     except subprocess.CalledProcessError as e:
-        print(f"处理失败: {e}")
+        print(f"Fail to process: {e}")
 
 
 if __name__ == "__main__":
     # 在这里询问用户输入路径
-    video_input_path = input("请输入视频文件路径: ").strip()
+    video_input_path = input("Please enter the video file path: ").strip()
     separate_audio_video(video_input_path)

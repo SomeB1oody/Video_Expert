@@ -25,21 +25,6 @@ def is_valid_windows_filename(filename: str) -> bool:
     # 如果所有检查都通过，返回True
     return True
 
-def is_valid_time_format(time_str):
-    # 正则表达式匹配 hh:mm:ss 格式（支持秒部分带小数）
-    hhmmss_pattern = r'^\d{1,2}:\d{2}:\d{2}(\.\d+)?$'
-    # 正则表达式匹配纯秒数（只支持整数）
-    integer_seconds_pattern = r'^\d+$'
-    # 正则表达式匹配纯秒数（支持带小数）
-    float_seconds_pattern = r'^\d+\.\d+$'
-
-    # 验证是否符合任意一种格式
-    if re.match(hhmmss_pattern, time_str): return True
-    if re.match(integer_seconds_pattern, time_str): return True
-    if re.match(float_seconds_pattern, time_str): return True
-
-    return False
-
 def change_video_speed(video_path, output_path, speed, keep_pitch):
     try:
         # 速度超过atempo的处理

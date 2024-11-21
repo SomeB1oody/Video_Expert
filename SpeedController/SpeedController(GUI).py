@@ -139,7 +139,7 @@ class SpeedControllerWX(wx.Frame):
 
         _, ext = os.path.splitext(os.path.basename(input_path))
         
-        if is_valid_time_format(output_name):
+        if not is_valid_windows_filename(output_name):
             wx.MessageBox("Invalid file name, please try another one!", "Error", wx.OK | wx.ICON_ERROR)
             return
 

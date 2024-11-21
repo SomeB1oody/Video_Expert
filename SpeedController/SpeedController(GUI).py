@@ -1,6 +1,44 @@
 import os
 import subprocess
 import wx
+import re
+
+def is_valid_windows_filename(filename: str) -> bool:
+    # 检查是否包含非法字符
+    invalid_chars = r'[<>:"/\\|?*]'
+    if re.search(invalid_chars, filename):
+        return False
+    # 检查是否是保留名称
+    reserved_names = [
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    ]
+    if filename.upper() in reserved_names:
+        return False
+    # 检查是否以空格或点结尾
+    if filename.endswith(' ') or filename.endswith('.'):
+        return False
+    # 检查文件名长度
+    if len(filename) > 255:
+        return False
+    # 如果所有检查都通过，返回True
+    return True
+
+def is_valid_time_format(time_str):
+    # 正则表达式匹配 hh:mm:ss 格式（支持秒部分带小数）
+    hhmmss_pattern = r'^\d{1,2}:\d{2}:\d{2}(\.\d+)?$'
+    # 正则表达式匹配纯秒数（只支持整数）
+    integer_seconds_pattern = r'^\d+$'
+    # 正则表达式匹配纯秒数（支持带小数）
+    float_seconds_pattern = r'^\d+\.\d+$'
+
+    # 验证是否符合任意一种格式
+    if re.match(hhmmss_pattern, time_str): return True
+    if re.match(integer_seconds_pattern, time_str): return True
+    if re.match(float_seconds_pattern, time_str): return True
+
+    return False
 
 def change_video_speed(video_path, output_path, speed, keep_pitch):
     try:
@@ -115,6 +153,10 @@ class SpeedControllerWX(wx.Frame):
         pitch = pitch[0]
 
         _, ext = os.path.splitext(os.path.basename(input_path))
+        
+        if is_valid_time_format(output_name):
+            wx.MessageBox("Invalid file name, please try another one!", "Error", wx.OK | wx.ICON_ERROR)
+            return
 
         path = f'{output_path}/{output_name}{ext}'
 
